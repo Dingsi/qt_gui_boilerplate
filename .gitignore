@@ -1,0 +1,46 @@
+# Build directories
+build/
+out/
+
+# IDE specific files
+.vscode/
+.vs/
+*.user
+CMakeSettings.json
+
+# Qt specific
+*.pro.user
+*.pro.user.*
+*.qmake.stash
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+*.qmlc
+*.jsc
+Makefile*
+*build-*
+*.qm
+
+# Compiler specific
+*.o
+*.obj
+*.dll
+*.so
+*.dylib
+*.exe
+*.exp
+*.ilk
+*.pdb
+*.lib
+*.a
+*.la
+*.lo
+
+# OS specific
+.DS_Store
+.directory
+*.swp
+*~
+
+# vcpkg
+vcpkg_installed/

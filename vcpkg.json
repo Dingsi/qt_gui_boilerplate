@@ -1,0 +1,11 @@
+{
+    "name": "sample-qt-app",
+    "version": "1.0.0",
+    "dependencies": [
+        {
+            "name": "qt5-base",
+            "host": true,
+            "platform": "windows"
+        }
+    ]
+}
