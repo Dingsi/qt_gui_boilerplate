@@ -57,6 +57,7 @@ jobs:
     # Install vcpkg and Qt (Windows)
     - name: Install vcpkg and Qt (Windows)
       if: runner.os == 'Windows'
+      shell: cmd
       run: |
         mkdir C:\vcpkg || true
         if not exist C:\vcpkg\vcpkg.exe (
@@ -66,7 +67,6 @@ jobs:
         set VCPKG_ROOT=C:\vcpkg
         set VCPKG_DEFAULT_TRIPLET=x64-windows
         set VCPKG_MAX_CONCURRENCY=%NUMBER_OF_PROCESSORS%
-        # Check if dependencies are already installed
         if not exist build/vcpkg_installed (
           C:\vcpkg\vcpkg.exe install --triplet x64-windows --binarycaching
         ) else (
