@@ -1,103 +1,63 @@
-# Qt GUI Application Boilerplate
-
-A minimal, modern Qt GUI application boilerplate using CMake. Cross-platform compatible with platform-optimized dependency management.
-
-## Prerequisites
-
-### Windows
-- Visual Studio Build Tools (MSVC)
-- CMake (3.15 or higher)
-- vcpkg
-- Qt5 (installed via vcpkg)
-
-### Linux
-- GCC or Clang
-- CMake (3.15 or higher)
-- Qt5 development packages
-
-## Setup Instructions
-
-### Windows
-1. Install vcpkg and set VCPKG_ROOT environment variable
-2. Install Qt5 using vcpkg:
+### Debian 12 (Bookworm) / Ubuntu 22.04+
 ```bash
-vcpkg install qt5-base:x64-windows
-```
-3. Configure and build:
-```bash
-cmake -B build -S .
-cmake --build build --config Release
+# Install required packages
+sudo apt update
+sudo apt install build-essential cmake qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
+
+# Verify Qt installation
+qmake --version
 ```
 
-### Linux
-1. Install Qt development packages:
+### Other Distributions
 
-For Ubuntu/Debian:
+#### Ubuntu 20.04 or older
 ```bash
 sudo apt update
 sudo apt install build-essential cmake qt5-default qtbase5-dev
 ```
 
-For Fedora:
+#### Fedora
 ```bash
 sudo dnf groupinstall "Development Tools"
 sudo dnf install cmake qt5-qtbase-devel
 ```
 
-For Arch Linux:
+#### Arch Linux
 ```bash
 sudo pacman -S base-devel cmake qt5-base
 ```
 
-2. Configure and build:
+# Build Instructions
+After installing the dependencies:
 ```bash
+# Configure
 cmake -B build -S .
+
+# Build
 cmake --build build
 ```
 
-## Project Structure
+# Troubleshooting
 
-```
-.
-├── .vscode/                  # VS Code configuration
-├── src/                      # Source files
-│   ├── main.cpp
-│   ├── mainwindow.h
-│   └── mainwindow.cpp
-├── .gitignore
-├── CMakeLists.txt           # CMake build configuration
-├── README.md
-└── vcpkg.json              # Windows-specific vcpkg dependencies
-```
+If you encounter Qt-related issues:
 
-## Development Notes
-
-### Windows
-- Uses vcpkg for dependency management
-- Requires VCPKG_ROOT environment variable
-- Uses MSVC compiler
-
-### Linux
-- Uses system Qt packages
-- Uses system's default compiler (typically GCC)
-- No vcpkg required
-
-## Build Configuration
-
-### Windows
+1. Check if Qt is properly installed:
 ```bash
-# Debug
-cmake --build build --config Debug
-# Release
-cmake --build build --config Release
+qtchooser -print-env
 ```
 
-### Linux
+2. Verify Qt version:
 ```bash
-# Debug
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
-# Release
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+qmake --version
+```
+
+3. If CMake can't find Qt, you might need to specify the Qt path:
+```bash
+# Example path - adjust according to your system
+cmake -B build -S . -DQt5_DIR=/usr/lib/x86_64-linux-gnu/cmake/Qt5
+```
+
+4. Check if pkg-config can find Qt:
+```bash
+pkg-config --modversion Qt5Core
 ```
