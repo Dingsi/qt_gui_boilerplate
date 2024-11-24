@@ -48,11 +48,30 @@ jobs:
       uses: actions/cache@v3
       with:
         path: |
-          vcpkg
+          C:/vcpkg
           ${{ github.workspace }}/build/vcpkg_installed
         key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
           vcpkg-${{ runner.os }}-
+
+    # Install vcpkg and Qt (Windows)
+    - name: Install vcpkg and Qt (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        mkdir C:\vcpkg || true
+        if not exist C:\vcpkg\vcpkg.exe (
+          git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+          cd C:\vcpkg && bootstrap-vcpkg.bat
+        )
+        set VCPKG_ROOT=C:\vcpkg
+        set VCPKG_DEFAULT_TRIPLET=x64-windows
+        set VCPKG_MAX_CONCURRENCY=%NUMBER_OF_PROCESSORS%
+        # Check if dependencies are already installed
+        if not exist build/vcpkg_installed (
+          C:\vcpkg\vcpkg.exe install --triplet x64-windows --binarycaching
+        ) else (
+          echo "Dependencies are already installed, skipping install step."
+        )
 
     # Install Qt on different platforms
     - name: Install Qt (Linux)
@@ -67,13 +86,6 @@ jobs:
         brew install qt@5
         echo "$(brew --prefix qt@5)/bin" >> $GITHUB_PATH
 
-    - name: Install vcpkg and Qt (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        git clone https://github.com/Microsoft/vcpkg.git
-        .\vcpkg\bootstrap-vcpkg.bat
-        .\vcpkg\vcpkg.exe install --triplet x64-windows
-
     - name: Configure CMake (Windows)
       if: runner.os == 'Windows'
       run: >
@@ -81,7 +93,7 @@ jobs:
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+        -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
         -S ${{ github.workspace }}
 
     - name: Configure CMake (Unix)
@@ -100,12 +112,9 @@ jobs:
     - name: Package Application (Windows)
       if: runner.os == 'Windows'
       run: |
-        # Create dist directory
         mkdir dist
-        # Copy executable and required DLLs
         copy build\Release\*.exe dist\
         copy build\Release\*.dll dist\
-        # Create ZIP archive
         7z a qt-app-${{ matrix.artifact_name }}${{ matrix.artifact_extension }} .\dist\*
 
     - name: Package Application (Unix)
