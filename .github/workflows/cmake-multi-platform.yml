@@ -68,6 +68,9 @@ jobs:
       run: |
         git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
         cd C:\vcpkg
+        git fetch --unshallow
+        git fetch origin
+        git pull --all
         call bootstrap-vcpkg.bat
         
     - name: Install Qt dependencies (Windows)
