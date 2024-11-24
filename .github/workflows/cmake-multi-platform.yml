@@ -77,7 +77,7 @@ jobs:
         set VCPKG_ROOT=C:\vcpkg
         set VCPKG_DEFAULT_TRIPLET=${{ matrix.triplet }}
         %VCPKG_ROOT%\vcpkg.exe integrate install
-        %VCPKG_ROOT%\vcpkg.exe install qt5-base:${{ matrix.triplet }} --clean-after-build
+        %VCPKG_ROOT%\vcpkg.exe install --triplet ${{ matrix.triplet }} --clean-after-build
 
     # Install Qt on Linux
     - name: Install Qt (Linux)
