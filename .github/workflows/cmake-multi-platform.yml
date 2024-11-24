@@ -66,12 +66,14 @@ jobs:
       if: runner.os == 'Windows' && steps.vcpkg-cache.outputs.cache-hit != 'true'
       shell: cmd
       run: |
-        git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+        if exist C:\vcpkg rmdir /s /q C:\vcpkg
+        git clone --depth=1 https://github.com/Microsoft/vcpkg.git C:\vcpkg
         cd C:\vcpkg
-        git fetch --unshallow
-        git fetch origin
-        git pull --all
+        git fetch origin %VCPKG_BASELINE%
+        git checkout %VCPKG_BASELINE%
         call bootstrap-vcpkg.bat
+      env:
+        VCPKG_BASELINE: 5e5d0e1cd7785623065e77eff011afdeec1a3574
         
     - name: Install Qt dependencies (Windows)
       if: runner.os == 'Windows'
