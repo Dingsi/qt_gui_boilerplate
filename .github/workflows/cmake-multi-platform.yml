@@ -61,7 +61,8 @@ jobs:
       run: |
         git clone https://github.com/Microsoft/vcpkg.git
         .\vcpkg\bootstrap-vcpkg.bat
-        .\vcpkg\vcpkg.exe install qt5-base:x64-windows
+        # In manifest mode, just running vcpkg install will install dependencies from vcpkg.json
+        .\vcpkg\vcpkg.exe install --triplet x64-windows
 
     - name: Set reusable strings
       id: strings

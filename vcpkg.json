@@ -1,11 +1,12 @@
 {
-    "name": "sample-qt-app",
-    "version": "1.0.0",
+    "name": "qt-gui-sample-app",
+    "version-string": "0.1.0",
     "dependencies": [
         {
             "name": "qt5-base",
             "host": true,
             "platform": "windows"
         }
-    ]
+    ],
+    "builtin-baseline": "5e5d0e1cd7785623065e77eff011afdeec1a3574"
 }
