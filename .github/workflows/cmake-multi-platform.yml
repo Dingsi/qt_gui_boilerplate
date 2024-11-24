@@ -11,129 +11,119 @@ on:
 permissions:
   contents: write
 
+env:
+  QT_VERSION: 5 # Centralize Qt version management
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        build_type: [Release]
         include:
           - os: windows-latest
             c_compiler: cl
             cpp_compiler: cl
+            triplet: x64-windows
             artifact_name: Windows
             artifact_extension: .zip
-            binary_path: build/Release/sample-qt-app.exe
+            binary_pattern: build/Release/*.{exe,dll}
           - os: ubuntu-latest
             c_compiler: gcc
             cpp_compiler: g++
+            packages: qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
             artifact_name: Linux
             artifact_extension: .tar.gz
-            binary_path: build/sample-qt-app
+            binary_pattern: build/sample-qt-app
           - os: macos-latest
             c_compiler: clang
             cpp_compiler: clang++
             artifact_name: macOS
             artifact_extension: .tar.gz
-            binary_path: build/sample-qt-app
+            binary_pattern: build/sample-qt-app
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-    # Cache vcpkg for Windows
-    - name: Cache vcpkg
+    # Cache vcpkg and build artifacts
+    - name: Setup vcpkg cache
       if: runner.os == 'Windows'
       uses: actions/cache@v3
+      id: vcpkg-cache
       with:
         path: |
           C:/vcpkg
           ${{ github.workspace }}/build/vcpkg_installed
-        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        key: vcpkg-${{ matrix.os }}-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
-          vcpkg-${{ runner.os }}-
+          vcpkg-${{ matrix.os }}-
 
     # Install vcpkg and Qt (Windows)
-    - name: Install vcpkg and Qt (Windows)
+    - name: Setup vcpkg
+      if: runner.os == 'Windows' && steps.vcpkg-cache.outputs.cache-hit != 'true'
+      shell: cmd
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+        cd C:\vcpkg
+        call bootstrap-vcpkg.bat
+        
+    - name: Install Qt dependencies (Windows)
       if: runner.os == 'Windows'
       shell: cmd
       run: |
-        if not exist C:\vcpkg\vcpkg.exe (
-          if exist C:\vcpkg rmdir /s /q C:\vcpkg
-          git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
-          cd C:\vcpkg && bootstrap-vcpkg.bat
-        ) else (
-          echo "vcpkg already exists. Fetching latest changes..."
-          cd C:\vcpkg
-          git fetch --all
-          git reset --hard origin/main
-          bootstrap-vcpkg.bat
-        )
         set VCPKG_ROOT=C:\vcpkg
-        set VCPKG_DEFAULT_TRIPLET=x64-windows
-        set VCPKG_MAX_CONCURRENCY=%NUMBER_OF_PROCESSORS%
-        if not exist build/vcpkg_installed (
-          C:\vcpkg\vcpkg.exe install --triplet x64-windows --binarycaching
-        ) else (
-          echo "Dependencies are already installed, skipping install step."
-        )
+        set VCPKG_DEFAULT_TRIPLET=${{ matrix.triplet }}
+        %VCPKG_ROOT%\vcpkg.exe integrate install
+        %VCPKG_ROOT%\vcpkg.exe install qt5-base:${{ matrix.triplet }} --clean-after-build
 
-    # Install Qt on different platforms
+    # Install Qt on Linux
     - name: Install Qt (Linux)
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
+        sudo apt-get install -y ${{ matrix.packages }}
 
+    # Install Qt on macOS
     - name: Install Qt (macOS)
       if: runner.os == 'macOS'
       run: |
-        brew install qt@5
-        echo "$(brew --prefix qt@5)/bin" >> $GITHUB_PATH
+        brew install qt@${{ env.QT_VERSION }}
+        echo "$(brew --prefix qt@${{ env.QT_VERSION }})/bin" >> $GITHUB_PATH
 
-    - name: Configure CMake (Windows)
-      if: runner.os == 'Windows'
-      run: >
-        cmake -B build
-        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
-        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
-        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
-        -S ${{ github.workspace }}
-
-    - name: Configure CMake (Unix)
-      if: runner.os != 'Windows'
-      run: >
-        cmake -B build
-        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
-        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
-        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -S ${{ github.workspace }}
+    # Configure CMake
+    - name: Configure CMake
+      run: |
+        cmake --version
+        cmake -B build \
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+          -DCMAKE_BUILD_TYPE=Release \
+          ${{ runner.os == 'Windows' && format('-DCMAKE_TOOLCHAIN_FILE={0}/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET={1}', 'C:/vcpkg', matrix.triplet) || '' }} \
+          -S ${{ github.workspace }}
 
     - name: Build
-      run: cmake --build build --config ${{ matrix.build_type }}
+      run: cmake --build build --config Release --verbose
 
     # Package the application
-    - name: Package Application (Windows)
-      if: runner.os == 'Windows'
+    - name: Package Application
+      shell: bash
       run: |
-        mkdir dist
-        copy build\Release\*.exe dist\
-        copy build\Release\*.dll dist\
-        7z a qt-app-${{ matrix.artifact_name }}${{ matrix.artifact_extension }} .\dist\*
+        mkdir -p dist
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          cp ${{ matrix.binary_pattern }} dist/
+          7z a qt-app-${{ matrix.artifact_name }}${{ matrix.artifact_extension }} ./dist/*
+        else
+          cp ${{ matrix.binary_pattern }} dist/
+          tar czf qt-app-${{ matrix.artifact_name }}${{ matrix.artifact_extension }} -C dist .
+        fi
 
-    - name: Package Application (Unix)
-      if: runner.os != 'Windows'
-      run: |
-        mkdir dist
-        cp ${{ matrix.binary_path }} dist/
-        tar czf qt-app-${{ matrix.artifact_name }}${{ matrix.artifact_extension }} -C dist .
-
-    # Create Release
+    # Create Release for tags
     - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
       with:
         files: qt-app-${{ matrix.artifact_name }}${{ matrix.artifact_extension }}
         draft: false
@@ -142,7 +132,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    # Upload artifacts for all builds (even non-releases)
+    # Upload artifacts
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v3
       with:
