@@ -65,7 +65,10 @@ jobs:
           cd C:\vcpkg && bootstrap-vcpkg.bat
         ) else (
           echo "vcpkg already exists. Fetching latest changes..."
-          cd C:\vcpkg && git reset --hard && git pull
+          cd C:\vcpkg
+          git fetch --all
+          git reset --hard origin/main
+          bootstrap-vcpkg.bat
         )
         set VCPKG_ROOT=C:\vcpkg
         set VCPKG_DEFAULT_TRIPLET=x64-windows
