@@ -59,10 +59,13 @@ jobs:
       if: runner.os == 'Windows'
       shell: cmd
       run: |
-        mkdir C:\vcpkg || true
         if not exist C:\vcpkg\vcpkg.exe (
+          if exist C:\vcpkg rmdir /s /q C:\vcpkg
           git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
           cd C:\vcpkg && bootstrap-vcpkg.bat
+        ) else (
+          echo "vcpkg already exists. Fetching latest changes..."
+          cd C:\vcpkg && git reset --hard && git pull
         )
         set VCPKG_ROOT=C:\vcpkg
         set VCPKG_DEFAULT_TRIPLET=x64-windows
