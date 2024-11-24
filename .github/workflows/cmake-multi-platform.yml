@@ -1,8 +1,10 @@
-name: CMake on multiple platforms
+name: CMake Build and Release
 
 on:
   push:
     branches: [ "main" ]
+    tags:
+      - 'v*.*.*'  # Trigger on version tags
   pull_request:
     branches: [ "main" ]
 
@@ -18,20 +20,26 @@ jobs:
           - os: windows-latest
             c_compiler: cl
             cpp_compiler: cl
+            artifact_name: Windows
+            artifact_extension: .zip
+            binary_path: build/Release/*.exe
           - os: ubuntu-latest
             c_compiler: gcc
             cpp_compiler: g++
-          - os: ubuntu-latest
-            c_compiler: clang
-            cpp_compiler: clang++
+            artifact_name: Linux
+            artifact_extension: .tar.gz
+            binary_path: build/sample-qt-app
           - os: macos-latest
             c_compiler: clang
             cpp_compiler: clang++
+            artifact_name: macOS
+            artifact_extension: .tar.gz
+            binary_path: build/sample-qt-app
 
     steps:
     - uses: actions/checkout@v4
 
-    # Set up cache for vcpkg
+    # Cache vcpkg for Windows
     - name: Cache vcpkg
       if: runner.os == 'Windows'
       uses: actions/cache@v3
@@ -61,20 +69,12 @@ jobs:
       run: |
         git clone https://github.com/Microsoft/vcpkg.git
         .\vcpkg\bootstrap-vcpkg.bat
-        # In manifest mode, just running vcpkg install will install dependencies from vcpkg.json
         .\vcpkg\vcpkg.exe install --triplet x64-windows
 
-    - name: Set reusable strings
-      id: strings
-      shell: bash
-      run: |
-        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
-
-    # Platform-specific CMake configuration
     - name: Configure CMake (Windows)
       if: runner.os == 'Windows'
       run: >
-        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        cmake -B build
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
@@ -84,39 +84,50 @@ jobs:
     - name: Configure CMake (Unix)
       if: runner.os != 'Windows'
       run: >
-        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        cmake -B build
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -S ${{ github.workspace }}
 
     - name: Build
-      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+      run: cmake --build build --config ${{ matrix.build_type }}
 
-    - name: Test
-      working-directory: ${{ steps.strings.outputs.build-output-dir }}
-      run: ctest --build-config ${{ matrix.build_type }}
-      continue-on-error: true
+    # Package the application
+    - name: Package Application (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        # Create dist directory
+        mkdir dist
+        # Copy executable and required DLLs
+        copy build\Release\*.exe dist\
+        copy build\Release\*.dll dist\
+        # Create ZIP archive
+        7z a qt-app-${{ matrix.artifact_name }}${{ matrix.artifact_extension }} .\dist\*
 
-    # Upload build artifacts
-    - name: Upload build artifacts
+    - name: Package Application (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        mkdir dist
+        cp ${{ matrix.binary_path }} dist/
+        tar czf qt-app-${{ matrix.artifact_name }}${{ matrix.artifact_extension }} -C dist .
+
+    # Create Release
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: qt-app-${{ matrix.artifact_name }}${{ matrix.artifact_extension }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # Upload artifacts for all builds (even non-releases)
+    - name: Upload Build Artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: binaries-${{ matrix.os }}-${{ matrix.build_type }}
-        path: |
-          ${{ steps.strings.outputs.build-output-dir }}/**/*.exe
-          ${{ steps.strings.outputs.build-output-dir }}/**/*.dll
-          ${{ steps.strings.outputs.build-output-dir }}/**/*.so
-          ${{ steps.strings.outputs.build-output-dir }}/**/*.dylib
-          ${{ steps.strings.outputs.build-output-dir }}/**/*.app
-        if-no-files-found: ignore
-
-    # Optional: Upload error logs if build fails
-    - name: Upload error logs
-      uses: actions/upload-artifact@v3
-      if: failure()
-      with:
-        name: error-logs-${{ matrix.os }}-${{ matrix.build_type }}
-        path: |
-          ${{ steps.strings.outputs.build-output-dir }}/CMakeFiles/CMakeError.log
-          ${{ steps.strings.outputs.build-output-dir }}/CMakeFiles/CMakeOutput.log
+        name: qt-app-${{ matrix.artifact_name }}
+        path: qt-app-${{ matrix.artifact_name }}${{ matrix.artifact_extension }}
+        if-no-files-found: error

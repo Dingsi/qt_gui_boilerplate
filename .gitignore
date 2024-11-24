@@ -1,6 +1,7 @@
 # Build directories
 build/
 out/
+dist/
 
 # IDE specific files
 .vscode/
@@ -44,3 +45,45 @@ Makefile*
 
 # vcpkg
 vcpkg_installed/
+vcpkg/
+
+# Project specific
+version.sh
+version.bat
+
+# IDEs and editors
+.idea/
+*.swp
+*.swo
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# Logs and databases
+*.log
+*.sqlite
+
+# Local development files
+.env
+.env.local
+config.local.json
+
+# Dependencies
+node_modules/
+vendor/
+
+# Binary output
+bin/
+release/
+debug/
+
+# Testing
+coverage/
+.coverage
+htmlcov/
+test-results/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
