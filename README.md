@@ -1,63 +1,103 @@
-### Debian 12 (Bookworm) / Ubuntu 22.04+
+# Qt GUI Application Boilerplate
+
+A minimal, modern Qt GUI application boilerplate using CMake. Cross-platform compatible with platform-optimized dependency management.
+
+## Prerequisites
+
+### Windows
+- Visual Studio Build Tools (MSVC)
+- CMake (3.15 or higher)
+- vcpkg
+- Qt5 (installed via vcpkg)
+
+### Linux
+- GCC or Clang
+- CMake (3.15 or higher)
+- Qt5 development packages
+
+## Setup Instructions
+
+### Windows
+1. Install vcpkg and set VCPKG_ROOT environment variable
+2. Install Qt5 using vcpkg:
 ```bash
-# Install required packages
+vcpkg install qt5-base:x64-windows
+```
+3. Configure and build:
+```bash
+cmake -B build -S .
+cmake --build build --config Release
+```
+
+### Linux
+1. Install Qt development packages:
+
+For Debian 12 (Bookworm) / Ubuntu 22.04+:
+```bash
 sudo apt update
 sudo apt install build-essential cmake qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
-
-# Verify Qt installation
-qmake --version
 ```
 
-### Other Distributions
-
-#### Ubuntu 20.04 or older
-```bash
-sudo apt update
-sudo apt install build-essential cmake qt5-default qtbase5-dev
-```
-
-#### Fedora
+For Fedora:
 ```bash
 sudo dnf groupinstall "Development Tools"
 sudo dnf install cmake qt5-qtbase-devel
 ```
 
-#### Arch Linux
+For Arch Linux:
 ```bash
 sudo pacman -S base-devel cmake qt5-base
 ```
 
-# Build Instructions
-After installing the dependencies:
+2. Configure and build:
 ```bash
-# Configure
 cmake -B build -S .
-
-# Build
 cmake --build build
 ```
 
-# Troubleshooting
+## Project Structure
 
-If you encounter Qt-related issues:
-
-1. Check if Qt is properly installed:
-```bash
-qtchooser -print-env
+```
+.
+├── .vscode/                  # VS Code configuration
+├── src/                      # Source files
+│   ├── main.cpp
+│   ├── mainwindow.h
+│   └── mainwindow.cpp
+├── .gitignore
+├── CMakeLists.txt           # CMake build configuration
+├── README.md
+└── vcpkg.json              # Windows-specific vcpkg dependencies
 ```
 
-2. Verify Qt version:
+## Development Notes
+
+### Windows
+- Uses vcpkg for dependency management
+- Requires VCPKG_ROOT environment variable
+- Uses MSVC compiler
+
+### Linux
+- Uses system Qt packages
+- Uses system's default compiler (typically GCC)
+- No vcpkg required
+
+## Build Configuration
+
+### Windows
 ```bash
-qmake --version
+# Debug
+cmake --build build --config Debug
+# Release
+cmake --build build --config Release
 ```
 
-3. If CMake can't find Qt, you might need to specify the Qt path:
+### Linux
 ```bash
-# Example path - adjust according to your system
-cmake -B build -S . -DQt5_DIR=/usr/lib/x86_64-linux-gnu/cmake/Qt5
-```
-
-4. Check if pkg-config can find Qt:
-```bash
-pkg-config --modversion Qt5Core
+# Debug
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+# Release
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build
 ```
