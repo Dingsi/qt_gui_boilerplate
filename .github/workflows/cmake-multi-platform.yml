@@ -1,0 +1,121 @@
+name: CMake on multiple platforms
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        build_type: [Release]
+        include:
+          - os: windows-latest
+            c_compiler: cl
+            cpp_compiler: cl
+          - os: ubuntu-latest
+            c_compiler: gcc
+            cpp_compiler: g++
+          - os: ubuntu-latest
+            c_compiler: clang
+            cpp_compiler: clang++
+          - os: macos-latest
+            c_compiler: clang
+            cpp_compiler: clang++
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # Set up cache for vcpkg
+    - name: Cache vcpkg
+      if: runner.os == 'Windows'
+      uses: actions/cache@v3
+      with:
+        path: |
+          vcpkg
+          ${{ github.workspace }}/build/vcpkg_installed
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-${{ runner.os }}-
+
+    # Install Qt on different platforms
+    - name: Install Qt (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
+
+    - name: Install Qt (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install qt@5
+        echo "$(brew --prefix qt@5)/bin" >> $GITHUB_PATH
+
+    - name: Install vcpkg and Qt (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git
+        .\vcpkg\bootstrap-vcpkg.bat
+        .\vcpkg\vcpkg.exe install qt5-base:x64-windows
+
+    - name: Set reusable strings
+      id: strings
+      shell: bash
+      run: |
+        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+    # Platform-specific CMake configuration
+    - name: Configure CMake (Windows)
+      if: runner.os == 'Windows'
+      run: >
+        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+        -S ${{ github.workspace }}
+
+    - name: Configure CMake (Unix)
+      if: runner.os != 'Windows'
+      run: >
+        cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        -S ${{ github.workspace }}
+
+    - name: Build
+      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+
+    - name: Test
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      run: ctest --build-config ${{ matrix.build_type }}
+      continue-on-error: true
+
+    # Upload build artifacts
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: binaries-${{ matrix.os }}-${{ matrix.build_type }}
+        path: |
+          ${{ steps.strings.outputs.build-output-dir }}/**/*.exe
+          ${{ steps.strings.outputs.build-output-dir }}/**/*.dll
+          ${{ steps.strings.outputs.build-output-dir }}/**/*.so
+          ${{ steps.strings.outputs.build-output-dir }}/**/*.dylib
+          ${{ steps.strings.outputs.build-output-dir }}/**/*.app
+        if-no-files-found: ignore
+
+    # Optional: Upload error logs if build fails
+    - name: Upload error logs
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: error-logs-${{ matrix.os }}-${{ matrix.build_type }}
+        path: |
+          ${{ steps.strings.outputs.build-output-dir }}/CMakeFiles/CMakeError.log
+          ${{ steps.strings.outputs.build-output-dir }}/CMakeFiles/CMakeOutput.log
