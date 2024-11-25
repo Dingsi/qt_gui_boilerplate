@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 env:
-  QT_VERSION: 5 # Centralize Qt version management
+  QT_VERSION: 5
 
 jobs:
   build:
@@ -21,13 +21,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
-            c_compiler: cl
-            cpp_compiler: cl
-            triplet: x64-windows
-            artifact_name: Windows
-            artifact_extension: .zip
-            binary_pattern: build/Release/*.{exe,dll}
           - os: ubuntu-latest
             c_compiler: gcc
             cpp_compiler: g++
@@ -47,42 +40,6 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-
-    # Cache vcpkg and build artifacts
-    - name: Setup vcpkg cache
-      if: runner.os == 'Windows'
-      uses: actions/cache@v3
-      id: vcpkg-cache
-      with:
-        path: |
-          C:/vcpkg
-          ${{ github.workspace }}/build/vcpkg_installed
-        key: vcpkg-${{ matrix.os }}-${{ hashFiles('vcpkg.json') }}
-        restore-keys: |
-          vcpkg-${{ matrix.os }}-
-
-    # Install vcpkg and Qt (Windows)
-    - name: Setup vcpkg
-      if: runner.os == 'Windows' && steps.vcpkg-cache.outputs.cache-hit != 'true'
-      shell: cmd
-      run: |
-        if exist C:\vcpkg rmdir /s /q C:\vcpkg
-        git clone --depth=1 https://github.com/Microsoft/vcpkg.git C:\vcpkg
-        cd C:\vcpkg
-        git fetch origin %VCPKG_BASELINE%
-        git checkout %VCPKG_BASELINE%
-        call bootstrap-vcpkg.bat
-      env:
-        VCPKG_BASELINE: 5e5d0e1cd7785623065e77eff011afdeec1a3574
-        
-    - name: Install Qt dependencies (Windows)
-      if: runner.os == 'Windows'
-      shell: cmd
-      run: |
-        set VCPKG_ROOT=C:\vcpkg
-        set VCPKG_DEFAULT_TRIPLET=${{ matrix.triplet }}
-        %VCPKG_ROOT%\vcpkg.exe integrate install
-        %VCPKG_ROOT%\vcpkg.exe install --triplet ${{ matrix.triplet }} --clean-after-build
 
     # Install Qt on Linux
     - name: Install Qt (Linux)
@@ -106,7 +63,6 @@ jobs:
           -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
           -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
           -DCMAKE_BUILD_TYPE=Release \
-          ${{ runner.os == 'Windows' && format('-DCMAKE_TOOLCHAIN_FILE={0}/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET={1}', 'C:/vcpkg', matrix.triplet) || '' }} \
           -S ${{ github.workspace }}
 
     - name: Build
@@ -117,13 +73,8 @@ jobs:
       shell: bash
       run: |
         mkdir -p dist
-        if [[ "${{ runner.os }}" == "Windows" ]]; then
-          cp ${{ matrix.binary_pattern }} dist/
-          7z a qt-app-${{ matrix.artifact_name }}${{ matrix.artifact_extension }} ./dist/*
-        else
-          cp ${{ matrix.binary_pattern }} dist/
-          tar czf qt-app-${{ matrix.artifact_name }}${{ matrix.artifact_extension }} -C dist .
-        fi
+        cp ${{ matrix.binary_pattern }} dist/
+        tar czf qt-app-${{ matrix.artifact_name }}${{ matrix.artifact_extension }} -C dist .
 
     # Create Release for tags
     - name: Create Release
